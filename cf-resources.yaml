@@ -1,0 +1,62 @@
+Resources:
+
+  TargetArea:
+    Type: AWS::Location::GeofenceCollection
+    Properties: 
+      CollectionName: Home
+
+  DeliveryPerson1:
+    Type: AWS::Location::Tracker
+    Properties: 
+      PositionFiltering: DistanceBased
+      TrackerName: DeliveryPerson1
+
+  TargetAreaDeliveryPerson1:
+    Type: AWS::Location::TrackerConsumer
+    Properties: 
+      ConsumerArn: !GetAtt TargetArea.Arn
+      TrackerName: !Ref DeliveryPerson1
+
+  CloudWatchLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties: 
+      LogGroupName: "/location/tracker/geolimit"
+
+  EventBridgeRuleForTargetArea:
+    Type: AWS::Events::Rule
+    Properties: 
+      EventPattern: 
+        source: 
+          - "aws.geo"
+        detail-type: 
+          - "Location Geofence Event"
+        resources:
+          - !GetAtt TargetArea.Arn
+      RoleArn: !GetAtt EventBridgeRoleToAccessTarget.Arn
+      Targets: 
+        - Arn: !GetAtt CloudWatchLogGroup.Arn
+          Id: 'LogGroup' 
+
+  EventBridgeRoleToAccessTarget: 
+      Type: "AWS::IAM::Role"
+      Properties: 
+        AssumeRolePolicyDocument: 
+          Version: "2012-10-17"
+          Statement: 
+            - Effect: "Allow"
+              Principal: 
+                Service: 
+                  - "events.amazonaws.com"
+              Action: 
+                - "sts:AssumeRole"
+        Path: /
+        Policies:
+          - PolicyName: root
+            PolicyDocument:
+              Version: 2012-10-17
+              Statement:
+                - Effect: Allow
+                  Action: '*'
+                  Resource:
+                    - !GetAtt CloudWatchLogGroup.Arn
+  
